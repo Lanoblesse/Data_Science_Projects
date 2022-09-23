@@ -1,0 +1,144 @@
+---
+title: "Analysis"
+author: Paul-Yvann
+date: "11/21/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r}
+setwd("C:/Users/Hp/Desktop/stan")
+```
+
+```{r}
+#install.packages("jtools")
+library(jtools)
+library(readr)
+library(splines)
+library(generalhoslem)
+library(car)
+library(StepReg)
+```
+
+```{r}
+data <- read.csv("HW 4 Data burn1000(1).csv")
+data1 <- read.csv("infectios_data.csv")
+data2<- read.csv("Myopia.csv")
+```
+`
+# Problem 1
+```{r}
+Fit_1 <- glm(Treat~y+n+Center, data = data1, family = "binomial")
+lp <- predict(Fit_1, se.fit=TRUE)
+LB <- lp$Fit_1 - 1.96*lp$se.Fit_1 # confidence bounds for linear predictor
+UB <- lp$Fit_1 + 1.96*lp$se.Fit_1
+
+Fit_2 <- glm(Treat~Center, data = data1, family = "binomial")
+Fit_3 <- glm(Treat~n, data = data1, family = "binomial")
+summary(Fit_1)
+GOF_Fit_1 <- logitgof(data1$Treat, fitted(Fit_1))
+GOF_Fit_1
+GOF_Fit_2 <- logitgof(data1$Treat, fitted(Fit_1))
+GOF_Fit_2
+summary(Fit_2)
+GOF_Fit_3 <- logitgof(data1$Treat, fitted(Fit_1))
+GOF_Fit_3
+summary(Fit_3)
+```
+# Problem 4
+
+```{r}
+data$death[data$death=="Alive"] <- 0
+data$death[data$death=="Dead"] <- 1
+data$race[data$race=="White"] <- 1
+data$race[data$race=="Non-White"] <- 0
+data$inh_inj[data$inh_inj=="Yes"] <- 2
+data$inh_inj[data$inh_inj=="No"] <- 1
+data$gender[data$gender=="Male"] <- 1
+data$gender[data$gender=="Female"] <- 2
+```
+
+```{r}
+data$death <- as.numeric(data$death)
+data$race <- as.numeric(data$race)
+data$inh_inj <- as.numeric(data$inh_inj)
+data$gender <- as.numeric(data$gender)
+```
+
+```{r}
+summary(data)
+```
+```{r}
+mylogit <- glm(death ~ age + race + tbsa + inh_inj, data=data, family = "binomial")
+summary(mylogit)
+```
+
+
+```{r}
+fit_2 <- glm(death~ns(age, knots=c(19,44.37),Boundary.knots=c(1.1,78.87))+tbsa+race+inh_inj, data = data, family = "binomial")
+summary(fit_2)
+```
+
+#Problem 5
+
+```{r}
+Diagnostics <- anova(mylogit, test = "Chisq")
+Diagnostics
+```
+
+
+```{r}
+##GOF TEST HOSMER-LEMESHOW
+GOF_MYLOGIT <- logitgof(data$death, fitted(mylogit))
+GOF_MYLOGIT
+GOF_FIT_2 <- logitgof(data$death, fitted(fit_2))
+GOF_FIT_2
+```
+
+```{r}
+## One diagnostic test for Multicollieanrity
+
+MCL_mylogit <- car::vif(mylogit)
+MCL_mylogit
+MCL_fit_2 <- car::vif(fit_2)
+MCL_fit_2
+```
+
+#Problem 6
+```{r}
+
+predict <- 0.0904*13.55-0.6234*1+1.523*1
+predict
+data$logage <- log(data$age)
+```
+```{r}
+install.packages("jtools")
+plot <- effect_plot(data$logage, predict, xlab = "age", ylab = "logit(pi)")
+plot
+```
+
+
+#Problem 7
+To get the best model, I am running a bidirectional stepwise logistic regression.
+```{r}
+bestmodel <- stepwiselogit(data2, "MYOPIC", exclude="ID", include = NULL, selection = "bidirection", select = "SL", sle = 0.10, sls = 0.10)
+bestmodel
+```
+
+```{r}
+bestmodel_1 <- glm(MYOPIC ~ SPHEQ + DADDY + SPORTHR + MOMMY+GENDER+ACD+STUDYHR+READHR, data=data2, family = "binomial")
+summary(bestmodel_1)
+```
+```{r}
+ANOVA_bestmodel_1 <- anova(bestmodel_1, test="Chisq")
+ANOVA_bestmodel_1
+```
+```{r}
+GOF_bestmodel <- logitgof(data2$MYOPIC, fitted(bestmodel_1))
+GOF_bestmodel
+```
+
+
+
+
