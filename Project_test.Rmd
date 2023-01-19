@@ -1,0 +1,228 @@
+---
+title: "Untitled"
+author: "Paul-Yvann Djamen"
+date: "May 6, 2018"
+output: html_document
+---
+
+```{r}
+
+library(lmerTest)
+project<-read.csv(file="C:\\Users\\Paul-Yvann\\Documents\\bcarotene.csv", header = TRUE)
+
+model1 <- lmer(project$bcarot ~ -1 + dose + age + male + bmi + chol + month +(1| ptid), data = project,
+               REML = FALSE)
+summary(model1)
+anova(model1)
+plot(model1, resid(type="p",level=1) )
+qqnorm(model1, ~ resid(. , type="p",level=1),abline=c(0,1))
+qqnorm(model1, ~ ranef(.))
+par(mfrow=c(1,2))
+hist(model1[,1],xlab="Intercept Random Effect",main="Empirical Bayes Intercepts",freq=FALSE)
+hist(model1[,2],xlab="Slope Random Effect",main="Empirical Bayes Slopes",freq=FALSE)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+
+if(!require(psych)){install.packages("psych")}
+if(!require(DescTools)){install.packages("DescTools")}
+if(!require(Rmisc)){install.packages("Rmisc")}
+if(!require(FSA)){install.packages("FSA")}
+if(!require(plyr)){install.packages("plyr")}
+if(!require(boot)){install.packages("boot")}
+if(!require(MCMCglmm)){install.packages("MCMCglmm")}
+library(MASS)
+library(car)
+library(lme4)
+nrow(project)
+project <- project[complete.cases(project), ]
+cor(project, method = "pearson")
+WithoutT <- project[which(project$month < 4),]
+nrow(WithoutT)
+WithT <- project[which(project$month > 3),]
+nrow(WithT)
+str(project)
+str(WithT)
+str(WithoutT)
+
+length(which(project$dose == 60))
+
+interaction.plot(project$month, project$dose, project$bcarot, col = 1:5)
+interaction.plot(WithT$month, WithT$dose, WithT$bcarot, col = 1:5)
+interaction.plot(WithoutT$month, WithoutT$dose, WithoutT$bcarot, col = 1:5)
+
+interaction.plot(project$month, project$dose, project$vite, col = 1:5)
+interaction.plot(WithT$month, WithT$dose, WithT$vite, col = 1:5)
+interaction.plot(WithoutT$month, WithoutT$dose, WithoutT$vite, col = 1:5)
+
+qqp(WithoutT$bcarot, "norm", main = " qqp of beta-carotene Without treatment")
+qqp(WithT$bcarot, "norm", main = " qqp of beta-carotene With treatment ")
+
+qqp(WithoutT$vite, "norm", main = " qqp of vitamin E Without treatment ")
+qqp(WithT$vite, "norm", main = " qqp of vitamin E With treatment ")
+
+```
+
+
+
+
+
+```{r}
+
+data<-subset(project, select= - c(cauc,vauc))
+summary(WithoutT)
+sd(WithoutT$age[WithoutT$dose==0])
+
+summary(subset(WithT$male, WithT$dose == 0))
+sd(WithT$age[WithT$dose==0])
+summary(subset(data, data$dose == 15))
+summary(subset(data, data$dose == 30))
+summary(subset(data, data$dose == 45))
+summary(subset(data, data$dose == 60))
+
+data1<-subset(project, select= - c(cauc,vauc))
+summary(data1)
+summary(subset(data1, data1$month == 0))
+summary(subset(data1, data1$month == 1))
+summary(subset(data1, data1$month == 2))
+summary(subset(data1, data1$month == 3))
+summary(subset(data1, data1$month == 4))
+summary(subset(data1, data1$month == 5))
+summary(subset(data1, data1$month == 6))
+summary(subset(data1, data1$month == 7))
+summary(subset(data1, data1$month == 8))
+summary(subset(data1, data1$month == 9))
+summary(subset(data1, data1$month == 10))
+summary(subset(data1, data1$month == 11))
+summary(subset(data1, data1$month == 12))
+summary(subset(data1, data1$month == 13))
+summary(subset(data1, data1$month == 14))
+summary(subset(data1, data1$month == 15))
+
+#T-tests
+t.test(WithoutT$bcarot[WithoutT$dose == 0],WithT$bcarot[WithT$dose == 0] )
+t.test(WithoutT$bcarot[WithoutT$dose == 15],WithT$bcarot[WithT$dose == 15])
+t.test(WithoutT$bcarot[WithoutT$dose == 30],WithT$bcarot[WithT$dose == 30])
+t.test(WithoutT$bcarot[WithoutT$dose == 45],WithT$bcarot[WithT$dose == 45])
+t.test(WithoutT$bcarot[WithoutT$dose == 60],WithT$bcarot[WithT$dose == 60])
+
+
+t.test(WithoutT$bcarot, WithT$bcarot)
+t.test(WithoutT$bcarot[WithoutT$dose == 0], WithT$bcarot[WithT$dose == 15])
+t.test(WithoutT$bcarot[WithoutT$dose == 0], WithT$bcarot[WithT$dose == 30])
+t.test(WithoutT$bcarot[WithoutT$dose == 0], WithT$bcarot[WithT$dose == 45])
+t.test(WithoutT$bcarot[WithoutT$dose == 0], WithT$bcarot[WithT$dose == 60])
+t.test(WithoutT$bcarot[WithoutT$dose == 45],WithT$bcarot[WithT$dose == 60])
+t.test(WithoutT$bcarot[WithoutT$dose == 30],WithT$bcarot[WithT$dose == 60])
+t.test(WithoutT$bcarot[WithoutT$dose == 15],WithT$bcarot[WithT$dose == 60])
+t.test(WithoutT$bcarot[WithoutT$dose == 45],WithT$bcarot[WithT$dose == 30])
+t.test(WithoutT$bcarot[WithoutT$dose == 45],WithT$bcarot[WithT$dose == 15])
+t.test(WithoutT$bcarot[WithoutT$dose == 30],WithT$bcarot[WithT$dose == 15])
+
+
+#Vitamin E
+t.test(WithoutT$vite[WithoutT$dose == 0],WithT$vite[WithT$dose == 0] )
+t.test(WithoutT$vite[WithoutT$dose == 15],WithT$vite[WithT$dose == 15] )
+t.test(WithoutT$vite[WithoutT$dose == 30],WithT$vite[WithT$dose == 30] )
+t.test(WithoutT$vite[WithoutT$dose == 45],WithT$vite[WithT$dose == 45] )
+t.test(WithoutT$vite[WithoutT$dose == 60],WithT$vite[WithT$dose == 60] )
+
+
+t.test(WithoutT$vite, WithT$vite)
+t.test(WithoutT$vite[WithoutT$dose == 0], WithT$vite[WithT$dose == 15])
+t.test(WithoutT$vite[WithoutT$dose == 0], WithT$vite[WithT$dose == 30])
+t.test(WithoutT$vite[WithoutT$dose == 0], WithT$vite[WithT$dose == 45])
+t.test(WithoutT$vite[WithoutT$dose == 0], WithT$vite[WithT$dose == 60])
+t.test(WithoutT$vite[WithoutT$dose == 45], WithT$vite[WithT$dose == 60])
+t.test(WithoutT$vite[WithoutT$dose == 30], WithT$vite[WithT$dose == 60])
+t.test(WithoutT$vite[WithoutT$dose == 15], WithT$vite[WithT$dose == 60])
+t.test(WithoutT$vite[WithoutT$dose == 45], WithT$vite[WithT$dose == 30])
+t.test(WithoutT$vite[WithoutT$dose == 45], WithT$vite[WithT$dose == 15])
+t.test(WithoutT$vite[WithoutT$dose == 30], WithT$vite[WithT$dose == 15])
+
+
+
+#Cor Test
+cor.test(WithT$bcarot[WithT$dose == 0], WithT$vite[WithT$dose == 0])
+cor.test(WithT$bcarot[WithT$dose == 15], WithT$vite[WithT$dose == 15])
+cor.test(WithT$bcarot[WithT$dose == 30], WithT$vite[WithT$dose == 30])
+cor.test(WithT$bcarot[WithT$dose == 45], WithT$vite[WithT$dose == 45])
+cor.test(WithT$bcarot[WithT$dose == 60], WithT$vite[WithT$dose == 60])
+
+cor.test(WithoutT$bcarot[WithT$dose == 0], WithoutT$vite[WithT$dose == 0])
+cor.test(WithoutT$bcarot[WithT$dose == 15], WithoutT$vite[WithT$dose == 15])
+cor.test(WithoutT$bcarot[WithT$dose == 30], WithoutT$vite[WithT$dose == 30])
+cor.test(WithoutT$bcarot[WithT$dose == 45], WithoutT$vite[WithT$dose == 45])
+cor.test(WithoutT$bcarot[WithT$dose == 60], WithoutT$vite[WithT$dose == 60])
+
+
+
+
+
+
+```
+
+
+
+```{r}
+
+
+
+```
+
+
+
+
+
+
+```{r}
+model3 <- lmer(project$bcarot ~ -1 + dose + age + male + bmi + chol + month + 
+                 dose*age + dose*male + dose*month + dose*chol + dose*bmi + (1 | ptid), data = project,
+               REML = FALSE)
+summary(model4)
+anova(model4)
+
+
+```
+
+
+
+
+```{r}
+interaction.plot(project$month, project$dose, project$bcarot, col = 1:5)
+interaction.plot(project$month, project$dose, project$vite, col = 1:5)
+```
+
+
+
+
+```{r}
+
+anova(model1,model2,model3,model4)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

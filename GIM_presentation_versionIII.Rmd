@@ -1,0 +1,222 @@
+---
+title: "General index model variable selection"
+author: "Dr. Li and Yvann Paulin Djamen"
+date: "6/23/2018"
+output:
+  beamer_presentation: default
+  incremental: yes
+institute: Department of Mathematics and Statistics, University of New Mexico
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Problem of interest
+
+* Quantifying the health effects of environmental chemical mixtures which includes but not limited to
+    + idenfitication of the most critial components of the pollutant mixture;
+    + examination of potential interaction effects;
+* Exposure to environmental chemical mixtures data has
+    +  numerous potential exposures of interest;
+    +  high degrees of correlation between some of these exposures;
+    +  nonuniform data distributions.
+        
+## Simulation examples
+- Examples of linear and nonlinear models with continuous responses:
+
+\begin{eqnarray*}
+ \mbox{Example 2.1: }Y&=&3X_1+1.5X_2+2X_3+2X_4+2X_5+\sigma\epsilon \\
+ \mbox{Example 2.2: }Y&=&X_1+X_1X_2+X_1X_3+\sigma\epsilon \\
+ \mbox{Example 2.3: }Y&=&X_1^2X_2/X_3^2+\sigma\epsilon \\
+ \mbox{Example 2.4: }Y&=&X_1/e^{X_2+X_3}+\sigma\epsilon \\
+ \mbox{Example 2.5: }Y&=& X_1+X_2+(1+X_3)^2\epsilon \\
+ \end{eqnarray*}
+where $\epsilon \sim N(0,1)$ and is independent of $\mathbf{X}$. 
+
+## Scenarios of 1000 predictors
+
+- Scenario (a): $\mathbf{X}$ is simulated from multivariate Gaussian with correlation $0.5^{|i-j|}$.
+- Scenario (b): Each predictor $X_j, j=1,\dots,p$, is simulated from $\chi^2_1$ distribution independently.
+- Scenario (c): $X_1, \dots, X_{125}$ are simulated from multivariate Gaussian with correlation $0.5^{|i-j|}$. $X_{125}, \dots, X_{1000}$ are simulated as follows:
+\begin{eqnarray*}
+ X_j&=&X_{j-125}^2+\tilde{\epsilon}_j, j = 126, \cdots, 250\\
+ X_j&=&\sqrt{X_{j-250}}+\tilde{\epsilon}_j, j = 251, \cdots, 375 \\
+ X_j&=&\mbox{sin}(X_{j-375})+\tilde{\epsilon}_j, j = 376, \cdots, 500\\
+ \vdots
+ \end{eqnarray*}
+ 
+## Methods in comparison
+- S-SODA (Li and Liu 2018): Sliced SODA (S-SODA) for general index models.
+- SIRI and N-SIRI (Jiang and Liu 2014): use sliced inverse regression models.
+- LASSO: Least Absolute Shrinkage and selection operator which performs variable selection and regularization.
+- DC-SIS (Li et al. 2012): sure independence screening procedure based on distance correlation which improves performance of SIS .
+- hierNet (Bien et al. 2013): Lasso-like procedure to detect multiplicative interactions between predictors under hierarchical constraints.
+- DC-SCAD (Fan and Li, 2001): Smoothly Clipped Absolute Deviation based on distance correlation also a regularization method which competes with    LASSO
+- COP (Zhong et al. 2012): correlation of pursuit, a forward stepwise variable selection for index models.
+
+
+## Figure example 2.1
+Example 2.1: $Y=3X_1+1.5X_2+2X_3+2X_4+2X_5+\sigma\epsilon$.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=1\textwidth]{Example1}
+\end{figure}
+- Covariates are (a) Multivariate Normal, (b) $\chi^2_1$ distributed, (c) Normally distributed, and linearly or nonlinearly correlated.
+- FPs: false positives; FNs: false negatives
+- Conclusion: Methods are compaable in senario (a); LASSO and SODA outperforms others in senario (b) and (c).
+
+## Figure example 2.2
+
+Example 2.2: $Y=X_1+X_1X_2+X_1X_3+\sigma\epsilon$.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=1\textwidth]{Example2}
+\end{figure}
+- Covariates are (a) Multivariate Normal, (b) $\chi^2_1$ distributed, (c) Normally distributed, and linearly or nonlinearly correlated.
+
+- Conclusion: N-SIRI and SODA outperform the others in the number of FNs in senario (b) and (c). 
+
+## Figure example 2.3
+
+Example 2.3: $Y=X_1^2X_2/X_3^2+\sigma\epsilon$.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=1\textwidth]{Example3}
+\end{figure}
+
+- Covariates are (a) Multivariate Normal, (b) $\chi^2_1$ distributed, (c) Normally distributed, and linearly or nonlinearly correlated.
+
+- Conclusion: N-SIRI and SODA outperform the others in the number of FNs in senario (a), (b) and (c). 
+
+## Figure example 2.4
+
+Example 2.4: $Y=X_1/e^{X_2+X_3}+\sigma\epsilon$.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=1\textwidth]{Example4}
+\end{figure}
+
+- Covariates are (a) Multivariate Normal, (b) $\chi^2_1$ distributed, (c) Normally distributed, and linearly or nonlinearly correlated.
+
+- Conclusion: N-SIRI and SODA outperform the others in the number of FNs in senario (a), (b) and (c). 
+
+## Figure example 2.5
+
+Example 2.5: $Y=X_1+X_2+(1+X_3)^2\epsilon$.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=1\textwidth]{Example5}
+\end{figure}
+
+- Covariates are (a) Multivariate Normal, (b) $\chi^2_1$ distributed, (c) Normally distributed, and linearly or nonlinearly correlated.
+
+- Conclusion: N-SIRI and SODA outperform the others in the number of FNs in senario (a), (b) and (c). 
+
+## SODA
+- Let $((\mathbf{x}_i,y_i)),i=1,\dots,n$ denote $n$ independent obs of $(\mathbf{X},Y)$ where $Y$ is categorical.
+- Consider the logistic model 
+
+\[Pr(Y=k|\mathbf{x},\mathbf{\theta})=\frac{e^{\delta_k(\mathbf{x}|\mathbf{\theta})}}{1+\sum_{l=1}^{K-1}e^{\delta_l(\mathbf{x}|\mathbf{\theta})}}\]
+where $\delta_k(\mathbf{x}|\mathbf{\theta}) = \alpha_k+\beta_k'\mathbf{x}+\mathbf{x}'A_k\mathbf{x}$ for $k=1,\dots, K-1$. $\delta_K(\mathbf{x}|\mathbf{\theta})=0$.
+
+
+* Extended BIC (EBIC) $=-2l_n(\tilde{\mathbf{\theta}}_s)+|S|log(n)+2\gamma|S| log(p)$ where
+    + $l_n(\tilde{\mathbf{\theta}}_s)$ is the log-likeihood of the logist regression model, evaluated at MLE; 
+    + $S$ is the the number of predictors that has at least main or interaction effect; 
+    + $p$ is the number of predictors; 
+    + $\gamma$ is a tuning parameter.
+    
+## SODA algorithm stage 1 
+
+- Preliminary main effect selection:
+This step is same as standard stepwise regression method.
+
+Let $\{M_t}$ denote set of main effects at step t. SODA starts with *${M_1}$* = $\emptyset$ and iterates below until termination.
+
+(a)For each predictor j $\notin$ in \*${M_t}$*, create a new candidate set \$*{M_{t,j}}*$= *$M_t*\cup{j}$
+
+(b)Find the predictor j with th5e lowest EBIC$_\gamma$($M_{t,j}$). If EBIC$_\gamma$($M_{t,j}$) < EBIC$_\gamma$($M_{t}$), continue with ($M_{t+1}$) = $M_{t,j}$, otherwise terminate with $\tilde{M_f}$ and go to stage 2
+   
+   
+## SODA algorithm stage 2 
+   
+- Forward variable selection(interaction and main effect):
+Let $\{C_t}$ denote selected set of predictors at step t, and let ${S_t} = (\tilde{M_f})\star(\cup) \star ({C_t})\star(\cup)\star(({C_t})\star({C_t}))$ denote the set of terms included by $\{C_t}$.\\
+SODA starts with $C_{1}$ = $\emptyset$ and iterate operations below until termination.
+
+(a)For each j $\notin$ $\{C_t}$, set $C_{t,j} = C_t\cup{j}$ and let $S_{t,j}=(\tilde{M_f})(\cup)(C_{t,j})(\cup)((C_{t,j})\star(C_{t,j}))$\\
+
+(b)Find the predictor j with the lowest EBIC$_\gamma$($S_{t,j}$). If EBIC$_\gamma$($S_{t,j}$) < EBIC$_\gamma$($S_{t}$), continue with ($C_{t+1}$) = $C_{t,j}$, otherwise terminate with $\tilde{C_f}$ and go to stage 3\\
+
+## SODA algorithm stage 3 
+   
+- Backward elimination:
+    
+Let $\{S_t}$ denote selected set of individual terms at step t of the backward stage.
+SODA starts with ${S_1} = (\tilde{M_f})(\cup)(\tilde{C_f})(\cup)((\tilde{C_f})\star(\tilde{C_f}))$ and iterate until termination below:
+
+(a)For each main or interaction term j $\in$ ${S_t}$, create a candidate set $\S_{t,j}= S_{t}/{j}$\\
+SODA starts with $C_{1}$ = $\emptyset$ and iterate operations below until termination.\\
+
+b)Find the predictor j with the lowest EBIC$_\gamma$($S_{t,j}$). If EBIC$_\gamma$($S_{t,j}$) < EBIC$_\gamma$($S_{t}$), remove j,  otherwise terminate and retain $\tilde{S}$=${S_t}$\\
+
+## S-SODA
+
+-Sort the samples in the ascending order of the response $y_i$ and partion them into $H$ equal slices. Each $y_i$ is given a category label $s_i$.
+
+- Apply a SODA algorithm to the data $\{(s_i,\mathbf{x}_i)\}$. It outputs the main and interaction effects, as well as the variables that involved in these terms.
+
+## Prediction of Continuous Surfaces
+Three examples were considered to test the performance of predicting the response Y with p=1000 predictors.
+In order to visualize $E[Y|**X_p**]$ and $\hat{E}[Y|**|X_{p}**]$,
+where $\**X_p**$ = (X_1,X_2):
+
+\begin{eqnarray*}
+..
+Example 3.1:     Y& = &X_1 + X_2 + \sigma\epsilon,\\ 
+
+Example 3.2:     Y& = &X_1/exp(X_2) + \sigma\epsilon, \\
+
+Example 3.3:      Y& = &1 +  X^2_1 + X^2_2 +  \sigma\epsilon, \\
+
+\end{eqnarray*}
+
+
+>Figures displayed
+
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=1\textwidth]{figure_6}
+\end{figure}
+
+## References
+
+\bibliographystyle{plain}
+\bibliography{my_last_ref}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
