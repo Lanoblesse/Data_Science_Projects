@@ -1,0 +1,571 @@
+---
+title: "Take_home_Problem_I"
+author: "Paul-Yvann Djamen"
+date: "August 13, 2018"
+output:
+  pdf_document: default
+  word_document: default
+header-includes:
+- \usepackage{caption}
+- \setlength\parindent{24pt}
+geometry: margin=.6in
+---
+---
+
+
+
+```{r}
+#install.packages("glmnet")
+#install.packages("lmtest")
+#install.packages("ggplot2")
+#install.packages("carData")
+#install.packages("MASS")
+#install.packages("dae")
+#install.packages("psych")
+#install.packages("Rmisc")
+#install.packages("leaps")
+#library(dae)
+library(psych)
+library(ggplot2)
+library(car)
+library(MASS)
+library(Rmisc)
+library(lmtest)
+library(glmnet)
+library(leaps)
+
+```
+
+
+```{r}
+##Scatter plot and correlation matrix
+getwd()
+mydata<-read.csv(file="c:\\Users\\Paul-Yvann\\Documents\\TAke_HOme\\homeprices.csv", header = TRUE)
+nrow(mydata)
+head(mydata)
+head
+SqFt<-mydata$SqFt
+mean(SqFt)
+Baths<-mydata$Baths
+Est<-mydata$Est
+Beds<-mydata$Beds
+Long<-mydata$Long
+Zip.code<-mydata$Zip.Code
+Price<-mydata$Price
+Lat<-mydata$Lat
+Zip.Code<-mydata$Zip.Code
+summary(mydata)
+par(mfrow=c(2,2))
+plot(mydata)
+#pairs.panels(mydata)
+cor(cbind(Price,Beds,Baths,Lat,Long,Zip.Code,SqFt))
+cor(data.frame(Price,SqFt,Beds,Baths,Lat,Long))
+par(mfrow=c(1,1))
+boxplot(Price~Zip.Code, main = "Boxplot of Price vs Zip")
+boxplot(Price~Lat, main = "Boxplot of Price vs Lat")
+boxplot(Price~Long, main = "Boxplot of Price vs Long")
+
+
+
+```
+
+
+```{r}
+##Testing whether ESt and Price are significantly different
+newdata<-mydata[,c(-1,-2,-3,-4,-5,-8,-9)]
+m1<-mean(newdata$Price)
+m2<-mean(newdata$Est)
+s1<-var(newdata$Price)
+s2<-var(newdata$Est)
+n<-nrow(newdata)
+n
+
+t<-(m1-m2)/sqrt((s1/n)+(s2/n))
+t
+
+t.test(newdata$Est,newdata$Price)
+mydata
+```
+
+
+```{r, include=FALSE }
+#First model and model assumption
+
+mydata11<-mydata[,c(-1,-2,-7)]
+mydata11
+summary(mydata11)
+n<-nrow(mydata11)
+n
+model11<-lm(Price ~ Lat + Long + Beds + Baths + SqFt*Beds+SqFt*Baths+Beds*Baths)
+Anova(model11)
+summary(model11)
+vif(model11)
+par(mfrow=c(1,2))
+plot(model11, which = 4, cook.levels = cutoff)
+##Outlier test model 1 and 3
+srid11<-rstudent(model11)
+hist(srid11, freq = FALSE, main = "Distribution of Studentized of rstudent")
+xfit<-seq(min(srid11), max(srid11), length=40);yfit<-dnorm(xfit);
+lines(xfit, yfit)
+```
+
+```{r}
+#Check Non-constant variance
+resid<-model11$residuals
+yhat<-model11$fitted.values
+plot(yhat,resid,ylab="Residuals", xlab="Fitted Values", main = "Plot of Residuals vs. Fitted Values")
+abline(0,0 )
+bptest(model11, studentize=FALSE)
+```
+
+
+
+```{r}
+##Check for non-normality
+hist(resid, xlab="Residuals", main="Hisogram of Residuals")
+qqnorm(resid, xlab="Residuals", main="QQ-plot of Residuals")
+qqline(resid)
+shapiro.test(resid)
+```
+
+
+
+
+```{r}
+##Studentized residual analysis
+rstud<-rstudent(model11)
+plot(rstud, main = "Plot of Rstudent Values")
+abline(0,0)
+outlierTest(model11)
+
+qt(1-0.05/(2*n), n-length(model11$coefficients)-1)
+
+```
+
+
+
+
+```{r}
+##Y outliers
+youtliers<-which(abs(rstud)> qt(1-0.05/(2*n), n-2))
+youtliers
+
+##X outliers
+lev<-hatvalues(model11)
+xoutliers<-which((lev>(n*9)/2))
+xoutliers
+lev[xoutliers]
+```
+
+```{r}
+##Cook's distance
+#par(mfrow=c(2,2))
+cooks.distance(model11)
+plot(cooks.distance(model11), ylab="Cook's Distance", main = "Cook's Distance Plot")
+order(cooks.distance(model11))
+highcook<-which((cooks.distance(model11))>qf(0.05, model11$df[1], model11$df[2]))
+cooks.distance(model11)[highcook]
+
+```
+
+
+
+
+
+```{r}
+
+mean(SqFt)
+mean(Beds)
+mean(Baths)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+####Data transformation
+#BOx cox and Cetering
+bc<-boxcox(model11, lambda = seq(-2, 2, length = 10))
+trans<-bc$x[which.max(bc$y)]
+trans
+
+#Centered data
+X1<-SqFt-mean(SqFt)
+X2<-Beds-mean(Beds)
+X3<-Baths-mean(Baths)
+
+Y<-log(Price)
+```
+
+
+
+
+
+
+
+```{r}
+####Assess model assumption of transformed and new model22
+model22<-lm(Y ~ X1 + Lat + Long + X2 + X3 + X1*X2+X1*X3+X2*X3)
+Anova(model22)
+summary(model22)
+vif(model22)
+
+#Check Non-constant variance
+resid<-model22$residuals
+yhat<-model22$fitted.values
+plot(yhat,resid,ylab="Residuals", xlab="Fitted Values", main = "Plot of Residuals vs. Fitted Values\n(Post-Transformation)")
+abline(0,0 )
+bptest(model22, studentize=FALSE)
+
+
+##Check for non-normality
+hist(resid, xlab="Residuals", main="Hisogram of Residuals\n(Post_Transformation)")
+qqnorm(resid, xlab="Residuals", main="QQ-plot of Residuals\n(Post-Transformation)")
+
+
+qqline(resid)
+shapiro.test(resid)
+
+```
+
+
+
+
+```{r}
+##Studentized residual analysis
+rstud<-rstudent(model22)
+plot(rstud, main = "Plot of Rstudent Values/n(Post-Transformation)")
+abline(0,0)
+outlierTest(model22)
+
+qt(1-0.05/(2*n), n-length(model22$coefficients)-1)
+
+```
+
+
+```{r}
+##Y outliers
+youtliers<-which(abs(rstud)> qt(1-0.05/(2*n), n-2))
+youtliers
+
+##X outliers
+length(model22$coefficients)
+lev<-hatvalues(model11)
+xoutliers<-which((lev>(n*9)/2))
+xoutliers
+lev[xoutliers]
+```
+
+```{r}
+##Cook's distance
+par(mfrow=c(2,2))
+cooks.distance(model22)
+plot(cooks.distance(model22), ylab="Cook's Distance", main = "Cook's Distance Plot")
+order(cooks.distance(model22))
+highcook<-which((cooks.distance(model22))>qf(0.05, model22$df[1], model22$df[2]))
+cooks.distance(model22)[highcook]
+
+```
+
+```{r}
+####Data transformation(lmbda~1; transformation NOT needed)
+#BOx cox and Cetering 
+bc<-boxcox(model22, lambda=seq(-2, 2, length = 10))
+trans<-bc$x[which.max(bc$y)]
+trans
+```
+
+
+
+
+```{r}
+#model22<-lm(Y ~ X1 + Lat + Long + X2 + X3 + X1*X2+X1*X3+X2*X3)
+upper<-formula(~ X1 + Lat + Long + X2 + X3 + X1*X2+X1*X3+X2*X3)
+lower<-formula(~1)
+ans0<-lm(Y~1)
+ans1<-lm(Y~  X1 + Lat + Long + X2 + X3 + X1*X2+X1*X3+X2*X3)
+ans.back<-step(ans1, direction="backward")
+#Anova(model22)
+#summary(model22)
+#vif(model22)
+
+
+```
+
+
+
+```{r}
+##After backwards, ... isn't significant
+
+model33<-lm(Y ~ X1 + Lat + Long + X2 + X3+X1*X3+X2*X3)
+Anova(model33)
+summary(model33)
+vif(model33)
+bptest(model33)
+shapiro.test(model33$residuals)
+par(mfrow=c(2,2))
+plot(model33)
+cooks.distance(model33)
+cutoff<-4/((101-length(model33$coefficients)-2))
+which(cooks.distance(model33)>cutoff)
+outlierTest(model33)
+par(mfrow=c(1,1))
+plot(model33, which = 4, cook.levels = cutoff)
+
+##Outlier test model 1 and 3
+srid3<-rstudent(model33)
+hist(srid3, freq = FALSE, main = "Distribution of Studentized of rstudent")
+xfit<-seq(min(srid3), max(srid3), length=40);yfit<-dnorm(xfit);
+lines(xfit, yfit)
+summary(model33)
+```
+
+
+```{r}
+#Check Non-constant variance
+resid<-model33$residuals
+yhat<-model33$fitted.values
+plot(yhat,resid,ylab="Residuals", xlab="Fitted Values", main = "Plot of Residuals vs. Fitted Values\n(Post-Transformation)")
+abline(0,0 )
+bptest(model33, studentize=FALSE)
+
+
+##Check for non-normality
+hist(resid, xlab="Residuals", main="Hisogram of Residuals\n(Post_Transformation)")
+qqnorm(resid, xlab="Residuals", main="QQ-plot of Residuals\n(Post-Transformation)")
+
+
+qqline(resid)
+shapiro.test(resid)
+
+```
+
+
+```{r}
+##Studentized residual analysis
+rstud<-rstudent(model33)
+plot(rstud, main = "Plot of Rstudent Values/n(Post-Transformation)")
+abline(0,0)
+outlierTest(model33)
+
+qt(1-0.05/(2*n), n-length(model33$coefficients)-1)
+
+```
+
+
+
+```{r}
+##Y outliers
+youtliers<-which(abs(rstud)> qt(1-0.05/(2*n), n-2))
+youtliers
+
+##X outliers
+length(model33$coefficients)
+lev<-hatvalues(model33)
+xoutliers<-which((lev>(n*9)/2))
+xoutliers
+lev[xoutliers]
+```
+
+```{r}
+##Cook's distance
+par(mfrow=c(2,2))
+cooks.distance(model33)
+plot(cooks.distance(model33), ylab="Cook's Distance", main = "Cook's Distance Plot")
+order(cooks.distance(model33))
+highcook<-which((cooks.distance(model33))>qf(0.05, model33$df[1], model33$df[2]))
+cooks.distance(model33)[highcook]
+
+```
+
+
+
+
+
+```{r, include=FALSE}
+model4<-lm(Y ~ X1 + Long + X2 + X3+X1*X3+X2*X3)
+bptest(model4)
+shapiro.test(model4$residuals)
+par(mfrow=c(2,2))
+plot(model4)
+cooks.distance(model4)
+cutoff<-4/((101-length(model4$coefficients)-2))
+Anova(model4)
+summary(model4)
+vif(model4)
+```
+
+
+\large
+\textbf(summary)
+\normalsize
+ 
+This analysis made use of multiple linear regression approach  inorder to predicting the list price offered by sellers for their home in the Albuquerque area metroplex. This was made possible by the use of factors relating to geographical location as well as physical characteristics of the home. With *Price* as the independent variable, left over varibales such as *address, zip code,bedrooms,bathrooms,square feet, estimate,latitude and longitude* were dependent variables. This was a straitified form of sampling based on zipcodes.stratification helps reduce variability within strata while it increases variability between strata improveme sampling efficiency. This leads to a homogemous sample especially with a data set as this one, where we have no idea of how heterogenous the underlying population is. Couple of findings revealed in the anaylsis were as follows;
+
+1. Estimate of the value of the property was highly correlated with the price and didn't provide extra information which price by itself wouldn't have provided. Est was therefore removed from the model due to the fact that it is confounding in nature. A two sample t-test later confirmed *Est* and *Price* are not significantly different at the 0.05 significance level and therefore not needed both in the moel.Also important to note was that *SqFt* appeared to have the highest correlation with *Price*, while *Zip Code* appeared to have the lowest.
+
+2. High Variance Inflation Factor(vif) for all variables in model 1 except for Latitude and Longitude in the original model suggested high multicollinearity. This issue was addressed centering the data by subtracting the mean of any varibale whose vif value was greater than $10$ from its original value.
+
+3. With p-value for BP test and Shapiro test indicating normality and constant variance respectively both greater than 0.05, a transformation was conducted through box cox. The outcome was a logarithmic trnaformaion on the response, *Price*, suggested with a lambda value of about zero.
+
+4. After centering, the new model have all vif's values appreciably below $10$. A backward approach of model selection was performed and revealed a final model with low vif, predictors mostly significant at the 0.05 significance level except for Latitude.
+
+Important to note Zip code is related to geographical location and is therefore inherent of latitude and longitude. That is why it was not included in the model. Since zip code is the variable which helps divide our data set into strata and is categorical in nature, one can observe outliers in the boxplot of price against zip code(Appendix). This indicated several houses belong to a particular zipcode could have signicant variability in price since they could have been built at different times, been on the market much longer than others or just not in a neighborhood considered safe.\new line
+
+\large
+\textbf(Key Graphs and tables)
+\normal size
+
+
+
+
+
+
+
+\large
+\te
+
+
+
+\large
+\textbf(Introduction)
+\normalsize
+
+In this experiemnt, homes were randomly selected from zip codes in Albuquerque with the objective of predicting the list price for homes owned by sellers with the use of physical attributes as well as their geographical location of the homes with Zip codes acted as the stratified parameter . This analysis was made possible using stratified random sampling, which is a sampling method that involves the division of a population into smaller groups called strata and assigning those homes to various zip codes, although zip codes had more than one house assigned to them. Meaning houses were not mutually exclusive. Random sampling was then performed after the stratification process.The strata are based on attributes which members, in this case homes, share in common .This is a poplular form of sampling method is health related experiments, classification as well as prediction oriented experments as it introduces minimal bias, but greatly reduces variability within strata in order to improve the efficiency of sampling.This study is comprised of a summary of findings wtih discusssion of the data and appopriate statistical design, the process and results of the experiemnt will be discussed using tables and figures located in the Appendix A. A conclusion will be delivered with interpretation and summarizations of the findings related to prediction.
+
+
+\large
+\textbf{Matherials and Methods}
+\normal size
+
+A multiple regression algorithm approach was used to predict the list price of sellers due to the continuous nature of the response, price.
+This model was based on assumptions of independence of error terms, normal distribution of error terms as well as constant variance. Possible predictor variables used were *quare feet, number of bedrooms, number of bathrooms, latitude, longitude, Zip code, address ,and estimate* of the homes. Because latitude and longitude are the primary variables responsible for geographical location of a place on earth, zip code, the only categorical variable in the cmodel was dropped from the model. Moreover, estimate and address were also dropped from the model as they didn't provide any new piece of information which other predictors didn't provide already by themselves.
+The statistical tools used throughout this analysis included boxplots, BP test, Box-Cox transformation, Cook's distance, backward stepwise model selection, ANOVA, VIF, Schapiro-Wilk test as well as two-sampled T-test. 
+
+
+\large
+\textbf{results}
+\normalsize
+
+Analysis began with an initial glance at the data using boxplots ,correlation matrix as well as scatterplot matrix (Figures.., App ). In figure 1, it was discovered that some pairwise association exists between *price* and *estimate*, *price* and *square feet* as well as *square feet* and *bath*, while the rest were relatively low to moderate, with the lowest being *price* and *zip code*. Moreover, the boxplot(figure....App) of *price* against *zip codes* shows a few outliers which all represent unsually low priced homes considering other simialrities they have with other homes within the same zip code.
+
+Next, the full model was fitted, with all reasonable two-way interactions included. Though important, some variables such as estimate, address and zipcode were not included in the model. Estimate was shown redundant in the presence of price in the model confimed using a two sampled T-test. The pvalue here was $0.5$ which is $\gt$ than 0.05. This means we fail to reject the null hypothesis that price and estimate are siginificanly different from each other. Zipcode was redundant in the presence of latitude and longitude while address was not a critical predictor for price.
+
+
+model11<-lm(Price ~ Lat + Long + Beds + Baths + SqFt*Beds+SqFt*Baths+Beds*Baths)
+
+$Price= Lat + Long  + Beds + Baths + SqFt:Beds + SqFt:Baths + Beds:Baths$ 
+
+of the form $Y={\beta}_0 + {\beta}_1X_1 + {\beta}_2X_2 + {\beta}_3X_3 + {\beta}_4X_4+ {\beta}_5X_5X_3 + {\beta}_6X_5X_4 +  {\beta}_7X_3X_4$\\
+ 
+-After fitting the original or full  model to the data, it was necessary to verify model assumptions and assess whether the model violates the constant variance and normality assumption. The method of sampling used allow us to assume indepence of each obsrvtion and there errors as well.  From figure (a...,Apendi) the normal qqplot does not appear to be normal as the straight barely follows the sigmoid shapes curve. Moreover, the plot of fitted values vs residualls appears to have a cone like shapa opening to the right. These patterns together with the BP-test and Shapiro wilson both with -values much less than \alpha, the significance level of 0.05, we reject the null hypothesis which suggest constant variance and normality in favor of the alternative hypothesis.
+
+-Moving ahead,it is equally necessary to identify which observations were outliers or potential influential data points. From figure() using Cook's distance, oservations 20, 23, 90 and 96 as confirmed by the boxplot are outliers. Cook's distance predicts abservation 93 as a potential influential data point with 4 bedrooms and 6 bathrooms and maximum price of about 1.8Million.
+
+-In order to address violation of constant variance of error terms and normality of the data, a logarithmic transformation on price was suggested after performing a Box-Cox procedure. As shown in figure(),  $\lambda=0$ is used for the basis of the transformation, $Y = log(Price)$ 
+Another point of concern were the high VIF's(VIF$\gt$10) values gotten from the full model.See (table, Appendix) Because this suggests a high multicollinearity problem, meaning some variables provide the same piece of information, centering of three main effect terms about their mean was performed. In the transformed model22, all VIF's were appraciably below $10$ as shown in table(,,).
+
+After transforming the response and conducting model diagnostics again, figures () show a random distribution of residuals about the zero line with no clear pattern. Figure() shows an s-shaped qqplot with a near normal behaviour especially around the center. Since the straight line appears to follow the curve, we can assume reasonable constant variance assumption as well as reasonable normal distribution of error terms. Note that the new BP test had a P-value of 0.1266 which is greater than 0.05 and thus valid to assume normality,  the Shapiro_Wilk test had a p-value of only 0.007. Using a combination of visual analysis and the fact that another transformation on the response revealed $\lambda=0.0909$, it is fair to assume constant variance since a trannsformation on price will not be bery different and our new p-value is no longer substantially lower than 0.05 as it was in the full model. 
+Moreover, post transformation took away the influential data point noticed earlier. This means it is now time for model selection.
+
+-To determine which variables should be included in the reduced model, a backward stepwise procedure was performed. This method begins with the full model and all its predictor variables, and variables dropped based on their AIC  values. The step function automatically picked the model with the smallest AIC as the best model. One can also perform backward selection manually by removing the variable with the higest p-value one at a time. Both methods were used to arrive at a similar although not identical final model:
+
+\begin(align)
+- $Price= Lat + Long   + SqFt- \overline{SqFt} + Beds-\overline{Beds} + Baths-\overline{Baths} +(SqFt- \overline{SqFt}):(Baths-\overline{Baths}) + (Beds-\overline{Beds}):(Baths-\overline{Baths})$\ Reduced model{ model33 in the Appendix}\\
+                            
+\Rightarrow of thegeneral form  $Y={\beta}_0 + {\beta}_1X_1 + {\beta}_2X_2 + {\beta}_3X_3 + {\beta}_4X_4+ {\beta}_5X_5 + {\beta}_6X_3X_5 +  {\beta}_7X_4X_5$\\
+
+\end(align) 
+
+To interprete this final model, a unit increase in any of the predictors, $X_i$ will lead to an increase in the corresponding  $Y_i$ by an amount ${\beta_i}$
+With the final model put together, the plot or residual aagainst fitted values showed no obvious patterns. Moreover the histogram of residuals, shown in figure (,,) was less skewed to the left  compared to the original model. Figure() shows most of the data following the line except a few outliers on the tails. Potential outliers were shown on the Cook's distance plot while no influential data points were suspected. Combining these obserations, it is fair to say assumptions appear to be valid. We can be confident that the model has been reduced fully when one appricates the low VIF values.
+
+Using coefficeints of our reduced model from table() to predict the list prices requested, we have he following;
+
+About 115236.5 for the price of 3001 Calle San Angel NW while our model predicts 10213 Chapala Pl. NE will have as list price 907156.3
+
+
+
+\large
+\textbf{Conclusion}
+\normalsize
+  After dealing with multicollineaity problem of variables by centering the variables which were had high VIF values, the model was in good condition to proceed to a transformation. We also notice about 75 percent of homes in zipcode 87123 were above average price of about 500k. The apparent association of Square Feet and price was not leading since Square feet together with Bathrooms and Bedrooms were the most significants either as interactions or main effects all through the experiment. Dropping Zipcode from the model was a proof of concept since the model looked complicated with Zipcode as a categorical variable. 
+  After careful consideration of which variables to include in the model, the Box-Cox procedure went smoothly as a simple log transformation was used. Automated backward selection using step as well as manual backward selection using p-values both converged at getting to the final and reduced model. Although Latitude isn't significant in the last model, we can leave it works in pairs with Longitude. The automated model selection took out Latitude. There isn't much change in the VIF or p-values of our model with or without Latitude. Hence why it may not be extremely important in the presence of lngitude, but yet essential to keep.This means Square Feet, Baths, Beds and the interaction of Beds and Baths and Square foot and Baths, together with Latitude and longitude are the best predictors for the list price of a home in the albuquerque metroplex
+  In future experiments, one could include actual year when the house was built as well as how long it has been on the market such that outliers depicted in the model can be quickly identified and explained.
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
