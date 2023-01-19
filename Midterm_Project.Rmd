@@ -1,0 +1,476 @@
+---
+title: "Appendix"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align='center')
+knitr::opts_chunk$set(comment = NA, message = FALSE, warning = FALSE, cache=FALSE)
+
+library(car)
+library(MASS)
+library(plyr)
+library(ggplot2)
+library(lsmeans)
+library(multcomp)
+
+options(contrasts = c("contr.sum", "contr.poly"))
+```
+
+### Table 1: Structure of Data
+
+```{r}
+# Read in data and set structure
+
+adapt <- read.table("C:\\Users\\Dylan\\Documents\\school\\STAT 545\\adapt.txt",sep="",col.names=c("Potato","Regime","Temp","Photo","Leakage"))
+adapt$Photo <- NULL
+adapt$Potato <- factor(ifelse(adapt$Potato==1,"Species1","Species2"))
+adapt$Regime <- factor(ifelse(adapt$Regime==1,"Cold","RoomTemp"))
+adapt$Temp <- factor(ifelse(adapt$Temp==1,"-4 Degrees","-8 Degrees"))
+attach(adapt)
+str(adapt)
+```
+
+### Table 2: Summary of Cell Means
+
+```{r}
+# Fitting the full interaction model
+
+myfit <- lm(Leakage ~ Potato*Regime*Temp)
+yhat <- myfit$fitted.values
+resid <- myfit$residuals
+
+# Summarizing cell means
+
+Leakage.sum <- ddply(adapt, .(Potato,Regime,Temp), function(.df){
+  data.frame(n = length(.df$Leakage),
+             mean = mean(.df$Leakage),
+             var = var(.df$Leakage),
+             sd = sd(.df$Leakage)
+             )
+})
+Leakage.sum
+```
+
+### Plot 1: Comparing Variances Across Groups
+
+```{r,fig.height=4}
+# Plot marginal boxplots
+
+p <- ggplot(adapt, aes(x = Potato, y = Leakage, fill = Regime))
+p <- p + geom_hline(aes(yintercept = mean(Leakage.sum[,5])), colour = "black", linetype = "dashed", size = 0.3, alpha = 0.5)
+p <- p + geom_boxplot(size = 0.15, alpha = 0.4)
+#p <- p + geom_point(position = position_dodge(.75), alpha = 0.5)
+p <- p + facet_grid(. ~ Temp)
+p <- p + scale_fill_manual(values=c("dodgerblue", "sienna1"))
+p <- p + stat_summary(fun.y = "mean", geom = "text", label = "----",color= "red", show.legend=FALSE, position = position_dodge(.75))
+p <- p + ggtitle(bquote(atop(.("Ion leakage by species, regime, and temperature "), atop(.("Grand mean depicted by grey dashed line, cell means by red dashed line"),""))))
+print(p)
+```
+
+\newpage
+
+### Table 3: Fitting Full 3-Way Interaction Model
+
+```{r}
+# Fitting the full interaction model
+
+myfit <- lm(Leakage ~ Potato*Regime*Temp)
+yhat <- myfit$fitted.values
+resid <- myfit$residuals
+
+# ANOVA of full interaction model
+
+myanovat3 <- Anova(myfit,type=3)
+myanovat3
+```
+
+### Plot 2: Diagnostics of Full Model
+
+```{r,fig.height=3}
+# Plotting diagnostics
+par(mfrow=c(1,2))
+par(mar=c(5.1,4.1,2,2.1))
+plot(myfit, which = c(1,2))
+par(mar=c(5.1,4.1,4.1,2.1))
+par(mfrow=c(1,1))
+```
+
+### Table 4: Tests for Normality, Constant Variance and Outliers
+
+```{r}
+# Testing for equal variance and normality
+leveneTest(Leakage~Potato*Regime*Temp,center=median)
+shapiro.test(resid)
+outlierTest(myfit)
+```
+
+### Plot 3: Boxcox Transformation
+
+```{r,fig.height=4,fig.width=4}
+# Transforming response variable
+
+#min(Leakage)
+Leakage.t <- Leakage + abs(min(Leakage)) + .01 # Adding min to make all values positive
+#min(Leakage.t)
+myfit.t <- lm(Leakage.t ~ Potato*Regime*Temp) # Creating new fit (not yet transformed)
+bc <- boxcox(myfit.t)
+title("Boxcox Transformation Plot",cex.main=.85)
+ci <- c(min(bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]),max(bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]))
+#ci
+#bc$x[which.max(bc$y)]
+lambda <- 1/3
+
+Leakage.t <- Leakage.t^(lambda) # Transforming response variable
+myfit.t <- lm(Leakage.t ~ Potato*Regime*Temp) # New fit using transformed response
+yhat.t <- myfit.t$fitted.values
+resid.t <- myfit.t$residuals
+```
+
+### Table 5: Fitting Full 3-Way Interaction Model
+
+```{r}
+myanovat3.t <- Anova(myfit.t,type=3)
+myanovat3.t
+```
+
+
+### Plot 4: Diagnostics of Transformed Response Model
+
+```{r,fig.height=3.5}
+# Plotting diagnostics
+
+par(mfrow=c(1,2))
+plot(myfit.t, which = c(1,2))
+par(mfrow=c(1,1))
+```
+
+### Table 6: Tests for Normality, Constant Variance and Outliers in Transformed Model
+
+```{r}
+# Testing for equal variance and normality
+
+leveneTest(myfit.t,center=median)
+shapiro.test(resid.t)
+outlierTest(myfit.t)
+```
+
+### Plot 5: Boxcox Transformation (post transformation)
+
+```{r,fig.height=4,fig.width=4}
+# Varifying no further transformation recommended
+boxcox(myfit.t)
+title("Boxcox Transformation Plot (Post Transformation)",cex.main=.85)
+```
+
+### Table 7: Summary of Transformed Cell Means
+
+```{r}
+# Summarizing cell means
+
+adapt$Leakage.t <- Leakage.t
+Leakage.t.sum <- ddply(adapt, .(Potato,Regime,Temp), function(.df){
+  data.frame(n = length(.df$Leakage.t),
+             mean = mean(.df$Leakage.t),
+             var = var(.df$Leakage.t),
+             sd = sd(.df$Leakage.t)
+             )
+})
+Leakage.t.sum
+```
+
+\newpage
+
+### Plot 6: Profile Plots (before reduction of model)
+
+```{r,fig.height=9.8,fig.width=7.5}
+# Plotting profile plots
+
+par(mfrow=c(3,2))
+
+with(adapt[which(Potato=="Species1"),], interaction.plot(x.factor = Temp, trace.factor = Regime, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Potato: Species 1", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Potato=="Species2"),], interaction.plot(x.factor = Temp, trace.factor = Regime, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Potato: Species 2", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Regime=="Cold"),], interaction.plot(x.factor = Potato, trace.factor = Temp, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Regime: Cold", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Regime=="RoomTemp"),], interaction.plot(x.factor = Potato, trace.factor = Temp, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Regime: Room Temp", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Temp=="-4 Degrees"),], interaction.plot(x.factor = Regime, trace.factor = Potato, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Temperature: -4 Degrees", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Temp=="-8 Degrees"),], interaction.plot(x.factor = Regime, trace.factor = Potato, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Temperature: -8 Degrees", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+par(mfrow=c(1,1))
+```
+
+```{r,fig.height=2.8}
+### Same plots using lsmeans (before reduction of model)
+
+#lsmip(myfit.t, Regime ~ Temp|Potato, ylab = "Ion Leakage (Transformed)")
+#lsmip(myfit.t, Temp ~ Potato|Regime, ylab = "Ion Leakage (Transformed)")
+#lsmip(myfit.t, Potato ~ Regime|Temp, ylab = "Ion Leakage (Transformed)")
+```
+
+### Table 8: Reduced ANOVA Type 3 Model
+
+```{r}
+# Reducing model
+
+myfit.t.r <- update(myfit.t, . ~ . - Potato:Regime:Temp)
+yhat.t.r <- myfit.t.r$fitted.values
+resid.t.r <- myfit.t.r$residuals
+myanovat3.t.r <- Anova(myfit.t.r,type=3)
+myanovat3.t.r
+
+#myfit.t.r <- lm(Leakage.t ~ Potato + Regime + Temp + Potato*Regime + Regime*Temp)
+#myanovat3.t.r <- Anova(myfit.t.r,type="III")
+#myanovat3.t.r
+
+#myfit.t.r <- lm(Leakage.t ~ Potato + Regime + Temp + Potato*Regime)
+#myanovat3.t.r <- Anova(myfit.t.r,type="III")
+#myanovat3.t.r
+```
+
+### Plot7: Plotting Diagnostics of Reduced Model
+
+```{r,fig.height=3.5}
+
+# Plotting diagnostics
+par(mfrow=c(1,2))
+plot(myfit.t.r, which = c(1,2))
+par(mfrow=c(1,1))
+```
+
+### Table 9: Tests for Normality, Constant Variance and Outliers in Reduced Model
+
+```{r}
+leveneTest(myfit.t,center=median)
+shapiro.test(resid.t)
+outlierTest(myfit.t)
+```
+
+\newpage
+
+### Plot 8: Profile Plots (after reduction of model)
+
+```{r,fig.height=9.8,fig.width=7.5}
+# Plotting profile plots
+
+par(mfrow=c(3,2))
+
+with(adapt[which(Potato=="Species1"),], interaction.plot(x.factor = Temp, trace.factor = Regime, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Potato: Species 1", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Potato=="Species2"),], interaction.plot(x.factor = Temp, trace.factor = Regime, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Potato: Species 2", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Regime=="Cold"),], interaction.plot(x.factor = Potato, trace.factor = Temp, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Regime: Cold", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Regime=="RoomTemp"),], interaction.plot(x.factor = Potato, trace.factor = Temp, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Regime: Room Temp", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Temp=="-4 Degrees"),], interaction.plot(x.factor = Regime, trace.factor = Potato, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Temperature: -4 Degrees", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+with(adapt[which(Temp=="-8 Degrees"),], interaction.plot(x.factor = Regime, trace.factor = Potato, response = Leakage.t, fun = mean, type = "b", legend = TRUE, ylab = "Ion Leakage (Transformed)", main = "Temperature: -8 Degrees", cex.main = 1, pch = c(1,19),ylim=c(min(Leakage.t.sum[,5]),max(Leakage.t.sum[,5]))))
+
+par(mfrow=c(1,1))
+```
+
+```{r,fig.height=2.8}
+### Same plots using lsmeans (after reduction of model)
+#lsmip(myfit.t.r, Regime ~ Temp|Potato, ylab = "Ion Leakage (Transformed)")
+#lsmip(myfit.t.r, Temp ~ Potato|Regime, ylab = "Ion Leakage (Transformed)")
+#lsmip(myfit.t.r, Potato ~ Regime|Temp, ylab = "Ion Leakage (Transformed)")
+```
+
+\newpage
+
+### Plot 9: Comparing Variances Across Groups (before and after transformation)
+
+```{r,fig.height=4}
+# Plot marginal boxplots
+
+p <- ggplot(adapt, aes(x = Potato, y = Leakage, fill = Regime))
+p <- p + geom_hline(aes(yintercept = mean(Leakage.sum[,5])), colour = "black", linetype = "dashed", size = 0.3, alpha = 0.5)
+p <- p + geom_boxplot(size = 0.15, alpha = 0.4)
+#p <- p + geom_point(position = position_dodge(.75), alpha = 0.5)
+p <- p + facet_grid(. ~ Temp)
+p <- p + scale_fill_manual(values=c("dodgerblue", "sienna1"))
+p <- p + stat_summary(fun.y = "mean", geom = "text", label = "----",color= "red", show.legend=FALSE, position = position_dodge(.75))
+p <- p + ggtitle(bquote(atop(.("Ion leakage by species, regime, and temperature"), atop(.("Grand mean depicted by grey dashed line, cell means by red dashed line"),"(before transformation)"))))
+print(p)
+```
+
+```{r,fig.height=4}
+# Plot marginal boxplots
+
+p.t <- ggplot(adapt, aes(x = Potato, y = Leakage.t, fill = Regime))
+p.t <- p.t + ylab("Ion Leakage (Transformed)")
+p.t <- p.t + geom_hline(aes(yintercept = mean(Leakage.t.sum[,5])), colour = "black", linetype = "dashed", size = 0.3, alpha = 0.5)
+p.t <- p.t + geom_boxplot(size = 0.15, alpha = 0.4)
+#p.t <- p.t + geom_point(position = position_dodge(.75), alpha = 0.5)
+p.t <- p.t + facet_grid(. ~ Temp)
+p.t <- p.t + scale_fill_manual(values=c("dodgerblue", "sienna1"))
+p.t <- p.t + stat_summary(fun.y = "mean", geom = "text", label = "----",color= "red", show.legend=FALSE, position = position_dodge(0.75))
+p.t <- p.t + ggtitle(bquote(atop(.(""), atop(.(""),"(after transformation)"))))
+print(p.t)
+```
+
+```{r}
+#lsmeans(myfit.t.r, list(pairwise ~ Potato            ), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Regime            ), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Temp              ), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Potato|Regime     ), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Potato|Temp       ), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Regime|Temp       ), adjust = "tukey")
+#lsmeans(myfit.t, list(pairwise ~ Potato|Temp|Regime), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Potato|Regime|Temp), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Temp|Potato|Regime), adjust = "tukey")
+#lsmeans(myfit.t.r, list(pairwise ~ Regime|Temp|Potato), adjust = "tukey")
+```
+
+```{r,fig.height=4}
+#mytukey.rg <- ref.grid(myfit.t.r)
+mytukey.t.r <- lsmeans(myfit.t.r, ~ Potato|Regime|Temp, level=.95, adjust = "tukey", method = "pairwise")
+#mytukey
+#mytukey2 <- lsmeans(myfit.t, ~ Potato|Regime|Temp, level=.95, adjust = "tukey", method = "pairwise")
+#mytukey2
+#str(mytukey)
+#mytukey.sum <- summary(mytukey, ~ Potato|Regime|Temp, level = .95, adjust = "tukey")
+#mytukey.sum
+#class(mytukey.sum)
+
+#contrast(tukeylsmeans, method = "pairwise")
+#mytukey.lsm <- lsmeans(mytukey.rg, ~ Potato|Regime|Temp)
+#plot(mytukey.lsm, comparisons = TRUE, alpha = 0.95)
+
+#xtbl <- xtable(mytukey.lsm, caption = "Example", lable = "xtable:example")
+#print(xtbl,table.placement = "t")
+#cat("See Table~\\ref{xtable:example}.\n")
+```
+
+\newpage
+
+### Plot 10: Pairwise Comparison of Means
+
+```{r,fig.height=2.8,fig.width=5}
+plot(mytukey.t.r, by = "Potato", level = .95, ylab = "",xlab = "Ion Leakage (Transformed)",cex=.6)
+plot(mytukey.t.r, by = "Regime", level = .95, ylab = "",xlab = "Ion Leakage (Transformed)",cex=.6)
+plot(mytukey.t.r, by = "Temp", level = .95, ylab = "",xlab = "Ion Leakage (Transformed)",cex=.6)
+```
+
+### Table 10: Summaries of Significant Contrasts
+
+```{r}
+#library(multcomp)
+#lsmeans(myfit.t.r, list(pairwise ~ Potato|Regime|Temp), adjust = "tukey")
+mydata <- adapt
+mydata$Potato <- as.factor(ifelse(mydata$Potato=="Species1","S1","S2"))
+mydata$Regime <- as.factor(ifelse(mydata$Regime=="Cold","C","RT"))
+mydata$Temp <- as.factor(ifelse(mydata$Temp=="-4 Degrees","4","8"))
+myfit.t.r2 <- lm(Leakage.t ~ Potato*Regime*Temp,data=mydata)
+myfit.t.r2 <- update(myfit.t.r2, . ~ . - Potato:Regime:Temp)
+glht.p <- glht(myfit.t.r2, linfct = lsm(pairwise~Temp|Potato|Regime), group="Tukey")
+glht.r <- glht(myfit.t.r2, linfct = lsm(pairwise~Potato|Regime|Temp), group="Tukey")
+glht.t <- glht(myfit.t.r2, linfct = lsm(pairwise~Regime|Temp|Potato), group="Tukey")
+lsm.p <- lsmeans(myfit.t.r2, list( pairwise ~ Temp| Potato | Regime | Temp ), adjust = "tukey" )
+lsm.r <- lsmeans(myfit.t.r2, list( pairwise ~ Potato | Regime | Temp ), adjust = "tukey" )
+lsm.t <- lsmeans(myfit.t.r2, list( pairwise ~ Regime | Temp | Potato), adjust = "tukey" )
+lsm.p$`pairwise differences of contrast, Potato | Potato`
+lsm.r$`pairwise differences of contrast, Regime | Regime`
+lsm.t$`pairwise differences of contrast, Temp | Temp`
+#plot( lsm1$`pairwise differences of contrast, Regime | Regime` )
+#summary(glht.p)
+#summary(glht.r)
+#summary(glht.t)
+```
+
+\newpage
+
+### Plot 11: Pairwise Differences of Ion Leakage
+
+```{r,fig.height=8,fig.width=7}
+par(mfrow=c(3,2))
+par(mar=c(5.1,8,4.1,2.1))
+
+plot(glht.p$`Potato = S1`,xlab="Pairwise Differences in Mean Ion Leakage",main="Potato: Species 1 ",cex=.8,cex.main=.8)
+plot(glht.p$`Potato = S2`,xlab="Pairwise Differences in Mean Ion Leakage",main="Potato: Species 2 ",cex=.8,cex.main=.8)
+
+plot(glht.r$`Regime = C`,xlab="Pairwise Differences in Mean Ion Leakage",main="Regime: Cold ",cex=.8,cex.main=.8)
+plot(glht.r$`Regime = RT`,xlab="Pairwise Differences in Mean Ion Leakage",main="Regime: Room Temp ",cex=.8,cex.main=.8)
+
+plot(glht.t$`Temp = 4`,xlab="Pairwise Differences in Mean Ion Leakage",main="Temp: -4 Degrees ",cex=.8,cex.main=.8)
+plot(glht.t$`Temp = 8`,xlab="Pairwise Differences in Mean Ion Leakage",main="Temp: -8 Degrees ",cex=.8,cex.main=.8)
+
+par(mar=c(5.1,4.1,4.1,2.1))
+par(mfrow=c(1,1))
+```
+
+\newpage
+
+### Pairwise differences across Potato Species Cells
+
+The mean ion leakage of potato species 2 acclimatized to cold weather and later subjected to -4 degree temperatures was significantly \textbf{lower} than those acclimatized to room temperature and later subjected to -8 degree temperatures.
+
+- Estimated difference: $`r round((-1.7192)^3,3)`$ ($p < 0.001$)
+
+The mean ion leakage of potato species 2 subjected to -4 degree temperatures and acclimatized to cold weather was significantly \textbf{lower} than those acclimatized to room temperature.
+
+- Estimated difference: $`r round((-1.3738)^3,3)`$ ($p < 0.001$)
+
+The mean ion leakage of potato species 2 subjected to -8 degree temperatures and acclimatized to cold weather was significantly \textbf{lower} than those acclimatized to room temperature.
+
+- Estimated difference: $`r round((-0.3454)^3,3)`$ ($p < 0.001$)
+
+- This suggests that the mean ion leakage of potatos species 2 acclimatized to cold weather was significantly \textbf{lower} than those acclimatized to room temperature, regardless of the temperature they were later subjected to. (I.e., \textbf{main effect of regime on ion leakage within Potato=Species 2 cell}.)
+
+---
+
+### Pairwise differences across Regime Cells
+
+The mean ion leakage of potato species 1 acclimatized to cold weather and subjected to -4 degree temperatures was significantly \textbf{lower} than potato species 2 which were also acclimatized to cold weather but later subjected to -8 degree temperatures.
+
+- Estimated difference: $`r round((-.8451)^3,3)`$ ($p = 0.002$)
+
+The mean ion leakage of potato species 1 acclimatized to cold weather and subjected to -8 degree temperatures was significantly \textbf{higher} than potato species 2 which were also acclimatized to cold weather but subjected to -4 degree temperatures.
+
+- Estimated difference: $`r round((-.7335)^3,3)`$ ($p = 0.008$)
+
+The mean ion leakage of potato species 1 acclimatized to room temperature and subjected to -4 degree temperatures was significantly \textbf{lower} than potato species 2 which were also acclimatized to room temperature but later subjected to -8 degree temperatures.
+
+- Estimated difference: $`r round((-1.5213)^3,3)`$ ($p < 0.001$)
+
+The mean ion leakage of potato species 1 acclimatized to room temperature and subjected to -8 degree temperatures was significantly \textbf{lower} than potato species 2 which were also acclimatized to room temperature but later subjected to -4 degree temperatures.
+
+- Estimated difference: $`r round((-.8974)^3,3)`$ ($p = 0.003$)
+
+The mean ion leakage of potatos acclimatized to room temperature and subjected to -4 degree temperatures was significantly \textbf{lower} in potato species 1 than potato species 2.
+
+- Estimated difference: $`r round((-1.176)^3,3)`$ ($p < .001$)
+
+The mean ion leakage of potatos acclimatized to room temperature and subjected to -8 degree temperatures was significantly \textbf{lower} in potato species 1 than potato species 2.
+
+- Estimated difference: $`r round((-1.2427)^3,3)`$ ($p < .001$)
+
+- This suggests that the mean ion leakage of potatos acclimatized to room temperature was significantly \textbf{lower} among potato species 1 than potato species 2, regardless of the temperature they were later subjected to. (I.e., \textbf{main effect of species on ion leakage within Regime=Room Temp cell}.)
+
+The mean ion leakage of potato species 1 acclimatized to cold weather and later subjected to -4 degree temperatures was significantly \textbf{lower} than those subjected to -8 degree temperatures.
+
+- Estimated difference: $`r round((-0.7559)^3,3)`$ ($p < 0.001$)
+
+The mean ion leakage of potato species 2 acclimatized to cold weather and later subjected to -4 degree temperatures was significantly \textbf{lower} than those subjected to -8 degree temperatures.
+
+- Estimated difference: $`r round((-0.8227)^3,3)`$ ($p = 0.002$)
+
+- This suggests that the mean ion leakage of potatos acclimatized to cold weather and subjected to -4 degree temperatures was significantly \textbf{lower} than those subjected to -8 degree temperatures, regardless of species. (I.e., \textbf{main effect of temperature on ion leakage within Regime=Cold cell}.)
+
+---
+
+### Pairwise differences across Temperature Treatment Cells
+
+- The mean ion leakage of potato species 1 subjected to -4 degree temperatures and acclimatized to cold weather was significantly \textbf{lower} than potato species 2 which were also subjected to -4 degree temperatures but acclimatized to room temperature.
+
+- Estimated difference: $`r round((-1.39626)^3,3)`$ ($p < .001$)
+
+The mean ion leakage of potato species 1 subjected to -8 degree temperatures and acclimatized to cold weather was significantly \textbf{lower} than potato species 2 which were also subjected to -8 degree temperatures but acclimatized to room temperature.
+
+- Estimated difference: $`r round((-.98578)^3,3)`$ ($p < .001$)
+
+- This suggests that the mean ion leakage of potato species 1 acclimatized to cold weather was significantly \textbf{lower} than potato species 2 which were acclimatized to room temperature, regardless of the temperature they were later subjected to. (I.e., \textbf{two-way interaction effect of species and regime on ion leakage}.)
