@@ -1,0 +1,376 @@
+---
+title: "Final Project"
+author: "Paul-Yvann Djamen"
+date: "December 8, 2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+
+---
+title: "Final Project"
+author: "Paul-Yvann Djamen"
+date: "November 24, 2020"
+output:
+  word_document: default
+  html_document: default
+---
+
+#Installing packages and reading the data set
+```{r, include=FALSE}
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE)
+
+install.packages("stargazer")
+library(lmtest)
+library(leaps)
+library(MASS)
+library(car)
+library(stargazer)
+options(knitr.duplicate.label = "allow")
+#(graphics=FALSE, ind=1)
+
+
+
+if(!require(psych)){install.packages("psych")}
+if(!require(DescTools)){install.packages("DescTools")}
+if(!require(Rmisc)){install.packages("Rmisc")}
+if(!require(FSA)){install.packages("FSA")}
+if(!require(plyr)){install.packages("plyr")}
+if(!require(boot)){install.packages("boot")}
+if(!require(MCMCglmm)){install.packages("MCMCglmm")}
+
+## Read data
+#install.packages("reprex")
+data<-read.csv(file="C:\\Users\\Paul-Yvann\\Desktop\\Authorisation_CS_Solutions\\Extra\\Arnaud\\TAke_HOme\\homeprices.csv", header = T)
+nrow(data)
+ncol(data)
+head(data)
+```
+
+
+if(!require(psych)){install.packages("psych")}
+if(!require(DescTools)){install.packages("DescTools")}
+if(!require(Rmisc)){install.packages("Rmisc")}
+if(!require(FSA)){install.packages("FSA")}
+if(!require(plyr)){install.packages("plyr")}
+if(!require(boot)){install.packages("boot")}
+if(!require(MCMCglmm)){install.packages("MCMCglmm")}
+
+# relabelling variables
+
+```{r, echo=FALSE}
+
+Zip.Code <- factor(data$Zip.Code)
+SqFt<-data$SqFt
+Beds<-data$Beds
+Baths<-data$Baths
+Price<-data$Price
+Est<-data$Est
+Lat<-data$Lat
+Long<-data$Long
+
+
+attach(data)
+```
+
+## Including Plots of scatter plot vs the response
+
+
+```{r pressure, echo=FALSE}
+par(mfrow=c(3,4))
+plot(SqFt, Price, main="Price vs SqFt")
+plot(Beds, Price, main="Price vs Beds")
+plot(Baths,Price, main="Price vs Baths")
+plot(Zip.Code, Price, main="Price vs Zip Code")
+plot(Est, Price, main="Price vs Estimated of Price")
+plot(Lat, Price, main="Price vs Latitude")
+plot(Long, Price, main="Price vs Longitude")
+```
+
+
+## Correlation matrices
+```{r, echo=FALSE}
+cor1 <- cor(data.frame(Price,SqFt,Beds,Baths,Est,Lat,Long))
+cor1
+pairs(data.frame(Price,SqFt,Beds,Baths,Est,Lat,Long,Zip.Code))
+
+```
+
+
+## Summary of the data 
+```{r, echo=FALSE}
+summary(data)
+stargazer(data, type = "text", title="Descriptive statistics", digits=1, out="table1.txt", flip = TRUE)
+```
+
+
+## Fit the model
+```{r, echo=FALSE}
+FIT1<-lm(Price ~ SqFt + Zip.Code + Beds + Baths + SqFt*Beds+SqFt*Baths+Beds*Baths)
+Anova(FIT1,type=3)
+
+```
+
+# Multicollinearity
+```{r, echo=FALSE}
+stargazer(vif(FIT1))
+```
+
+
+#Check for independence of error
+```{r, include=FALSE}
+durbinWatsonTest(FIT1)
+dwtest(FIT1)
+```
+# Ho: autocorrelation=0
+
+## Normality Test
+```{r, include=FALSE}
+par(mfrow=c(1,1))
+qqnorm(FIT1$residuals)
+qqline(FIT1$residuals)
+hist(FIT1$residuals, main="Histogram of the Residuals", xlab = "Residuals")
+boxplot(FIT1$residuals, main="Boxplot of Residuals")  #several outliers 
+shapiro.test(FIT1$residuals)
+boxplot(rstudent(FIT1))
+plot(FIT1)
+```
+
+
+## Constant variance assumption
+```{r, include=FALSE}
+bptest(FIT1)
+```
+
+
+## Plot residuals by predictors and fitted value
+```{r, include=FALSE}
+par(mfrow=c(1,1))
+plot(FIT1$fitted.values, FIT1$residuals, xlab="Fitted Values", ylab="Residuals", main="Residuals vs Fitted")
+abline(a=0, b=0, lty=2)
+
+plot(SqFt, FIT1$residuals, xlab="SqFt", ylab="Residuals", main="Residuals vs SqFt)")
+abline(a=0, b=0, lty=2)
+
+plot(Beds, FIT1$residuals, xlab="Beds", ylab="Residuals", main="Residuals vs Beds")
+abline(a=0, b=0, lty=2)
+
+plot(Baths, FIT1$residuals, xlab="Baths", ylab="Residuals", main="Residuals vs Baths")
+abline(a=0, b=0, lty=2)
+
+plot(Zip.Code, FIT1$residuals, xlab="Zip Code", ylab="Residuals", main="Residuals vs Zip Code")
+abline(a=0, b=0, lty=2)
+
+plot(SqFt*Beds, FIT1$residuals, xlab="SqFT:Beds", ylab="Residuals", main="Residuals vs SqFt:Beds")
+abline(a=0, b=0, lty=2)
+
+plot(SqFt*Baths, FIT1$residuals, xlab="SqFT:Baths", ylab="Residuals", main="Residuals vs SqFt:Baths")
+abline(a=0, b=0, lty=2)
+
+plot(Beds*Baths, FIT1$residuals, xlab="Beds:Baths", ylab="Residuals", main="Residuals vs Beds:Baths")
+abline(a=0, b=0, lty=2)
+
+bptest(FIT1,studentize=FALSE)
+
+
+
+
+
+```
+## Tranformation of the data 
+
+#Box-Cox transformation
+```{r, include=FALSE}
+par(mfrow=c(1,1))
+boxcox(FIT1, main="Box-Cox Transformation")
+```
+
+##Centering the data
+```{r, include=FALSE}
+cSqFt<-SqFt-mean(SqFt)
+cBeds<-Beds-mean(Beds)
+cBaths<-Baths-mean(Baths)
+```
+
+#Tranformed response
+```{r, include=FALSE}
+logPrice<-log(Price)
+FIT2<-lm(logPrice ~ cSqFt + Zip.Code + cBeds + cBaths + cSqFt*cBeds+cSqFt*cBaths+cBeds*cBaths)
+Anova(FIT2, type=3)
+
+stargazer(vif(FIT2))
+```
+
+## stepwise selection
+```{r, include=FALSE} 
+full <- lm(logPrice ~ cSqFt + Zip.Code + cBeds + cBaths + cSqFt*cBeds+cSqFt*cBaths+cBeds*cBaths)
+lower <- formula(~1)
+upper <- formula(~cSqFt + Zip.Code + cBeds + cBaths + cSqFt*cBeds+cSqFt*cBaths+cBeds*cBaths)
+step(full, scope=list(lower=lower, upper=upper), direction="both")
+```
+
+# (backward)
+```{r, include=FALSE}
+step(full, scope=list(lower=lower, upper=upper), direction="backward")
+```
+
+# (forward setup, include=FALSE)
+```{r}
+step(lm(logPrice~1), scope=list(lower=lower, upper=upper), direction="forward")
+anova(FIT1)
+```
+
+## Fit of Reduced Model 
+
+```{r setup, include=FALSE}
+ReducedModel<-lm(logPrice ~ cSqFt + Zip.Code + cBeds + cBaths +cSqFt*cBaths+cBeds*cBaths)
+Anova(ReducedModel, type=3)
+summary(ReducedModel)
+```
+
+## Multicollinearity
+
+```{rsetup, include=FALSE}
+stargazer(vif(ReducedModel))
+```
+
+
+## Independence of errors
+
+```{r}
+durbinWatsonTest(ReducedModel) # Ho: autocorrelation=0
+dwtest(ReducedModel)
+```
+
+
+#Test for Normality
+
+```{r, include=FALSE}
+par(mfrow=c(1,3))
+qqnorm(ReducedModel$residuals)
+qqline(ReducedModel$residuals)
+hist(ReducedModel$residuals, main="Histogram of the Residuals", xlab = "Residuals")
+boxplot(ReducedModel$residuals, main="Boxplot of Residuals") 
+shapiro.test(ReducedModel$residuals)
+par(mfrow=c(1,1))
+boxplot(rstudent(ReducedModel))
+order(rstudent(ReducedModel)) 
+#2 Outliers, observations 20 and 39
+outlierTest(ReducedModel)
+plot(ReducedModel)
+```
+
+
+## Plot residuals by predictors and fitted value
+
+```{r, include=FALSE}
+par(mfrow=c(3,3))
+plot(ReducedModel$fitted.values, ReducedModel$residuals, xlab="Fitted Values", ylab="Residuals", main="Residuals vs Fitted")
+abline(a=0, b=0, lty=2)
+
+plot(cSqFt, ReducedModel$residuals, xlab="cSqFt", ylab="Residuals", main="Residuals vs cSqFt)")
+abline(a=0, b=0, lty=2)
+
+plot(cBeds, ReducedModel$residuals, xlab="cBeds", ylab="Residuals", main="Residuals vs cBeds")
+abline(a=0, b=0, lty=2)
+
+plot(cBaths, ReducedModel$residuals, xlab="cBaths", ylab="Residuals", main="Residuals vs cBaths")
+abline(a=0, b=0, lty=2)
+
+plot(Zip.Code, ReducedModel$residuals, xlab="Zip Code", ylab="Residuals", main="Residuals vs Zip Code")
+abline(a=0, b=0, lty=2)
+
+plot(cSqFt*cBaths, ReducedModel$residuals, xlab="cSqFT:cBaths", ylab="Residuals", main="Residuals vs cSqFt:cBaths")
+abline(a=0, b=0, lty=2)
+
+plot(cBeds*cBaths, ReducedModel$residuals, xlab="cBeds:cBaths", ylab="Residuals", main="Residuals vs cBeds:cBaths")
+abline(a=0, b=0, lty=2)
+
+bptest(ReducedModel,studentize=FALSE)
+```
+
+#Added variable plots
+
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+avPlots(ReducedModel)
+plot(ReducedModel)
+```
+
+
+
+## Outlying Y observations
+
+```{r, include=FALSE}
+outlierTest(ReducedModel) # test of studentized residuals
+```
+
+
+##Cook's distance
+```{r, include=FALSE}
+max(cooks.distance(ReducedModel))
+order(cooks.distance(ReducedModel))[101]
+influence.measures(ReducedModel)
+```
+
+
+## Outlying X observations
+
+```{r, include=FALSE}
+lev<-hatvalues(ReducedModel)
+lev
+xoutliers <- which(lev > (2*7/101))
+xoutliers
+lev[xoutliers]
+
+cSqFt<-SqFt-mean(SqFt)
+cBeds<-Beds-mean(Beds)
+cBaths<-Baths-mean(Baths)
+
+```
+
+
+
+
+##Centering dataset and predicted model
+
+```{r, include=FALSE}
+cSqFt<-SqFt-mean(SqFt)
+cBeds<-Beds-mean(Beds)
+cBaths<-Baths-mean(Baths)
+
+logPrice<-log(Price)
+a<-cSqFt*cBaths
+b<-cBeds*cBaths
+ReducedModel<-lm(logPrice ~ cSqFt + Zip.Code + cBeds + cBaths +a+b)
+prediction<-data.frame(cSqFt=c(391.0792,-687.9208),Zip.Code =c("87107","87111"),cBeds=c(-0.4851485,-0.4851485),cBaths=c(0.4653465,-0.5346535),
+                       a=c(181.9873,367.7993),b=c(-0.2257622,0.2593863))
+
+predict(ReducedModel, interval="prediction",newdata=prediction)
+exp(predict(ReducedModel, interval="prediction",newdata=prediction))
+
+range(Price[24:30])
+mean(Price[24:30])
+range(Price[50:59])
+mean(Price[50:59])
+
+##1 507419.2 333446.7 772160.1
+##2 204875.8 135149.8 310574.8
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
